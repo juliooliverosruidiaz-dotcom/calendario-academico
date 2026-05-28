@@ -21,7 +21,7 @@
     <a href="reportes.html">📈 Reportes</a>
     <a href="perfil.html">👤 Mi Perfil</a>
     <a href="pruebas-usabilidad.html">🧪 Pruebas</a>
-    <a href="login.html" onclick="cerrarSesion()">🚪 Cerrar sesión</a>
+    <a href="index.html" onclick="cerrarSesion()">🚪 Cerrar sesión</a>
 </div>
 
 <div class="main">
@@ -79,7 +79,7 @@
     function obtenerUsuarioActual() {
         const sesion = JSON.parse(localStorage.getItem('sesion_actual'));
         if (!sesion) {
-            window.location.href = 'login.html';
+            window.location.href = 'index.html';
             return null;
         }
         return sesion;
@@ -274,7 +274,7 @@
     
     function cerrarSesion() {
         localStorage.removeItem('sesion_actual');
-        window.location.href = 'login.html';
+        window.location.href = 'index.html';
     }
     
     cargarDashboard();
