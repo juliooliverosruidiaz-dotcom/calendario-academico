@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asignación | Calendario Académico</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo-area">
+        <div style="font-size: 40px; text-align: center;">📅</div>
+        <h2>Calendario Académico</h2>
+        <p>Gestión de Horarios</p>
+    </div>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="docentes.html">👨‍🏫 Docentes</a>
+    <a href="asignacion.html">📅 Asignación</a>
+    <a href="reportes.html">📈 Reportes</a>
+    <a href="perfil.html">👤 Mi Perfil</a>
+    <a href="pruebas-usabilidad.html">🧪 Pruebas</a>
+    <a href="login.html" onclick="cerrarSesion()">🚪 Cerrar sesión</a>
+</div>
+
+<div class="main">
+    <h1>📅 Asignación de Horarios</h1>
+    
+    <div class="form-card">
+        <h3>✨ Nueva asignación</h3>
+        <div class="form-group">
+            <label>👨‍🏫 Docente:</label>
+            <select id="selectDocente" onchange="mostrarInfoDocente()">
+                <option value="">-- Seleccione un docente --</option>
+            </select>
+            <div id="infoDocente" style="margin-top: 10px; padding: 10px; border-radius: 8px; display: none;"></div>
+        </div>
+        <div class="form-group">
+            <label>📚 Materia:</label>
+            <select id="selectMateria">
+                <option value="">-- Seleccione una materia --</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>🏫 Salón:</label>
+            <input type="text" id="salon" placeholder="Ej: 101, 102, Laboratorio" oninput="verificarDisponibilidad()">
+            <div id="infoSalon" style="margin-top: 5px; font-size: 12px; display: none;"></div>
+        </div>
+        <div class="form-group">
+            <label>📅 Día:</label>
+            <select id="selectDia" onchange="verificarDisponibilidad()">
+                <option value="">-- Seleccione día --</option>
+                <option value="LUNES">LUNES</option>
+                <option value="MARTES">MARTES</option>
+                <option value="MIÉRCOLES">MIÉRCOLES</option>
+                <option value="JUEVES">JUEVES</option>
+                <option value="VIERNES">VIERNES</option>
+                <option value="SÁBADO">SÁBADO</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>⏰ Hora de inicio:</label>
+            <select id="selectHora" onchange="verificarDisponibilidad()">
+                <option value="">-- Seleccione hora --</option>
+                <option value="7:00">7:00 - 7:50</option><option value="7:50">7:50 - 8:40</option>
+                <option value="8:40">8:40 - 9:30</option><option value="9:30">9:30 - 10:20</option>
+                <option value="10:20">10:20 - 11:10</option><option value="11:10">11:10 - 12:00</option>
+                <option value="12:00">12:00 - 12:50 (ALMUERZO)</option>
+                <option value="12:50">12:50 - 13:40</option><option value="13:40">13:40 - 14:30</option>
+                <option value="14:30">14:30 - 15:20</option><option value="15:20">15:20 - 16:10</option>
+                <option value="16:10">16:10 - 17:00</option><option value="17:00">17:00 - 17:50</option>
+                <option value="17:50">17:50 - 18:40</option><option value="18:40">18:40 - 19:30</option>
+                <option value="19:30">19:30 - 20:20</option><option value="20:20">20:20 - 21:10</option>
+                <option value="21:10">21:10 - 22:00</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>⏱️ Duración:</label>
+            <select id="selectDuracion" onchange="verificarDisponibilidad()">
+                <option value="1">1 hora (50 minutos)</option>
+                <option value="2">2 horas (1h 40min)</option>
+            </select>
+        </div>
+        <div id="alertaDisponibilidad" style="margin-top: 10px; padding: 10px; border-radius: 8px; display: none;"></div>
+        <button onclick="agregarAsignacion()" id="btnAsignar">🎯 GENERAR ASIGNACIÓN</button>
+        <div id="errorMsg" class="error"></div>
+    </div>
+    
+    <div class="form-card">
+        <h3>📋 Asignaciones registradas</h3>
+        <div style="overflow-x: auto;">
+            <table id="tablaAsignacion" style="width:100%">
+                <thead><tr><th>Docente</th><th>Materia</th><th>Salón</th><th>Día</th><th>Horario</th><th>Duración</th><th>Horas</th><th>Acciones</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const HORAS_MAXIMAS = 42;
+    const listaHoras = ['7:00', '7:50', '8:40', '9:30', '10:20', '11:10', '12:00', '12:50', '13:40', '14:30', '15:20', '16:10', '17:00', '17:50', '18:40', '19:30', '20:20', '21:10'];
+    
+    const mapaHorarios = {
+        '7:00':'7:00-7:50','7:50':'7:50-8:40','8:40':'8:40-9:30','9:30':'9:30-10:20',
+        '10:20':'10:20-11:10','11:10':'11:10-12:00','12:00':'12:00-12:50','12:50':'12:50-13:40',
+        '13:40':'13:40-14:30','14:30':'14:30-15:20','15:20':'15:20-16:10','16:10':'16:10-17:00',
+        '17:00':'17:00-17:50','17:50':'17:50-18:40','18:40':'18:40-19:30','19:30':'19:30-20:20',
+        '20:20':'20:20-21:10','21:10':'21:10-22:00'
+    };
+    
+    function obtenerUsuarioActual() {
+        const sesion = JSON.parse(localStorage.getItem('sesion_actual'));
+        if (!sesion) window.location.href = 'login.html';
+        return sesion;
+    }
+    
+    function getStorageKey() {
+        const usuario = obtenerUsuarioActual();
+        return `datos_${usuario.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    }
+    
+    function getUserData() {
+        const key = getStorageKey();
+        const data = localStorage.getItem(key);
+        if (!data) {
+            const datosIniciales = { docentes: [], cursos: [], asignaciones: [], configuracion: {} };
+            localStorage.setItem(key, JSON.stringify(datosIniciales));
+            return datosIniciales;
+        }
+        return JSON.parse(data);
+    }
+    
+    function setUserData(data) {
+        const key = getStorageKey();
+        localStorage.setItem(key, JSON.stringify(data));
+    }
+    
+    function obtenerSiguienteHora(hora) {
+        const index = listaHoras.indexOf(hora);
+        return (index !== -1 && index + 1 < listaHoras.length) ? listaHoras[index + 1] : null;
+    }
+    
+    function calcularHorasDocente(docenteNombre) {
+        const userData = getUserData();
+        const asignaciones = userData.asignaciones || [];
+        return asignaciones.filter(a => a.docenteNombre === docenteNombre && !a.esContinuacion).reduce((sum, a) => sum + (a.horasAcademicas || 1), 0);
+    }
+    
+    function estaDocenteOcupado(docenteNombre, dia, hora, duracion) {
+        const userData = getUserData();
+        const asignaciones = userData.asignaciones || [];
+        if (asignaciones.some(a => a.docenteNombre === docenteNombre && a.dia === dia && a.hora === hora)) return true;
+        if (duracion === 2) {
+            const sigHora = obtenerSiguienteHora(hora);
+            if (sigHora && asignaciones.some(a => a.docenteNombre === docenteNombre && a.dia === dia && a.hora === sigHora)) return true;
+        }
+        return false;
+    }
+    
+    function estaSalonOcupado(salon, dia, hora, duracion) {
+        const userData = getUserData();
+        const asignaciones = userData.asignaciones || [];
+        if (asignaciones.some(a => a.salon === salon && a.dia === dia && a.hora === hora)) return true;
+        if (duracion === 2) {
+            const sigHora = obtenerSiguienteHora(hora);
+            if (sigHora && asignaciones.some(a => a.salon === salon && a.dia === dia && a.hora === sigHora)) return true;
+        }
+        return false;
+    }
+    
+    function verificarDisponibilidad() {
+        const docente = document.getElementById('selectDocente').value;
+        const salon = document.getElementById('salon').value.trim();
+        const dia = document.getElementById('selectDia').value;
+        const hora = document.getElementById('selectHora').value;
+        const duracion = parseInt(document.getElementById('selectDuracion').value);
+        const alertaDiv = document.getElementById('alertaDisponibilidad');
+        const btn = document.getElementById('btnAsignar');
+        
+        if (!docente || !salon || !dia || !hora || hora === '12:00') {
+            alertaDiv.style.display = 'none';
+            btn.disabled = false;
+            return;
+        }
+        
+        const ocupadoDocente = estaDocenteOcupado(docente, dia, hora, duracion);
+        const ocupadoSalon = estaSalonOcupado(salon, dia, hora, duracion);
+        const horasActuales = calcularHorasDocente(docente);
+        const excede = horasActuales + duracion > HORAS_MAXIMAS;
+        
+        if (ocupadoDocente || ocupadoSalon || excede) {
+            let msgs = [];
+            if (ocupadoDocente) msgs.push('🔴 El docente ya tiene clase en este horario');
+            if (ocupadoSalon) msgs.push(`🔴 El salón ${salon} ya está ocupado`);
+            if (excede) msgs.push(`🔴 Excede el límite de ${HORAS_MAXIMAS} horas`);
+            alertaDiv.style.display = 'block';
+            alertaDiv.style.background = '#f8d7da';
+            alertaDiv.style.color = '#721c24';
+            alertaDiv.innerHTML = `<strong>⚠️ No se puede asignar:</strong><br>${msgs.join('<br>')}`;
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+        } else {
+            alertaDiv.style.display = 'block';
+            alertaDiv.style.background = '#d4edda';
+            alertaDiv.style.color = '#155724';
+            alertaDiv.innerHTML = '<strong>✅ Disponible:</strong> Horario libre para docente y salón.';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    }
+    
+    function mostrarInfoDocente() {
+        const docente = document.getElementById('selectDocente').value;
+        const infoDiv = document.getElementById('infoDocente');
+        if (!docente) { infoDiv.style.display = 'none'; return; }
+        
+        const horas = calcularHorasDocente(docente);
+        const porcentaje = (horas / HORAS_MAXIMAS) * 100;
+        let color = horas >= HORAS_MAXIMAS ? '#dc3545' : (horas >= HORAS_MAXIMAS*0.9 ? '#ffc107' : '#28a745');
+        let texto = horas >= HORAS_MAXIMAS ? 'Horas completas' : (horas >= HORAS_MAXIMAS*0.9 ? 'Cerca del límite' : 'Disponible');
+        
+        infoDiv.style.display = 'block';
+        infoDiv.style.background = '#f8f9ff';
+        infoDiv.innerHTML = `<strong>📊 Estado:</strong> ${horas}/${HORAS_MAXIMAS} hrs<br>
+            <div style="width:100%; background:#e0e0e0; border-radius:10px; margin-top:5px;">
+                <div style="width:${Math.min(porcentaje,100)}%; height:8px; background:${color}; border-radius:10px;"></div>
+            </div>
+            <span style="color:${color};">${texto}</span>`;
+        verificarDisponibilidad();
+    }
+    
+    function cargarSelects() {
+        const userData = getUserData();
+        const docentes = userData.docentes || [];
+        const cursos = userData.cursos || [];
+        const selectDocente = document.getElementById('selectDocente');
+        const selectMateria = document.getElementById('selectMateria');
+        
+        selectDocente.innerHTML = '<option value="">-- Seleccione un docente --</option>';
+        selectMateria.innerHTML = '<option value="">-- Seleccione una materia --</option>';
+        
+        docentes.forEach(d => {
+            const horas = calcularHorasDocente(d.nombre);
+            selectDocente.innerHTML += `<option value="${d.nombre}">${d.nombre} - ${d.materia} (${horas}/${HORAS_MAXIMAS} hrs)</option>`;
+        });
+        
+        cursos.forEach(c => {
+            selectMateria.innerHTML += `<option value="${c.nombre}">${c.nombre} (${c.codigo}) - ${c.creditos} créditos</option>`;
+        });
+    }
+    
+    function agregarAsignacion() {
+        const docente = document.getElementById('selectDocente').value;
+        const materia = document.getElementById('selectMateria').value;
+        const salon = document.getElementById('salon').value.trim();
+        const dia = document.getElementById('selectDia').value;
+        const hora = document.getElementById('selectHora').value;
+        const duracion = parseInt(document.getElementById('selectDuracion').value);
+        
+        if (!docente || !materia || !salon || !dia || !hora) {
+            document.getElementById('errorMsg').innerText = '❌ Completa todos los campos';
+            return;
+        }
+        if (hora === '12:00') {
+            document.getElementById('errorMsg').innerText = '❌ No se puede asignar en horario de almuerzo';
+            return;
+        }
+        
+        const ocupadoDocente = estaDocenteOcupado(docente, dia, hora, duracion);
+        const ocupadoSalon = estaSalonOcupado(salon, dia, hora, duracion);
+        if (ocupadoDocente || ocupadoSalon) {
+            document.getElementById('errorMsg').innerText = '❌ Conflicto de horario o salón';
+            return;
+        }
+        
+        const userData = getUserData();
+        let asignaciones = userData.asignaciones || [];
+        const nuevoId = asignaciones.length + 1;
+        
+        const nuevaAsig = {
+            id: nuevoId, docenteNombre: docente, cursoNombre: materia, salon: salon,
+            dia: dia, hora: hora, duracion: duracion,
+            horarioCompleto: duracion === 1 ? mapaHorarios[hora] : `${mapaHorarios[hora].split('-')[0]}-${mapaHorarios[obtenerSiguienteHora(hora)].split('-')[1]} (2h)`,
+            horasAcademicas: duracion
+        };
+        asignaciones.push(nuevaAsig);
+        
+        if (duracion === 2) {
+            const sigHora = obtenerSiguienteHora(hora);
+            if (sigHora) {
+                asignaciones.push({ id: nuevoId + 1000, docenteNombre: docente, cursoNombre: materia, salon: salon,
+                    dia: dia, hora: sigHora, duracion: 0, horarioCompleto: '(Continuación)', horasAcademicas: 0, esContinuacion: true });
+            }
+        }
+        
+        userData.asignaciones = asignaciones;
+        setUserData(userData);
+        
+        document.getElementById('salon').value = '';
+        document.getElementById('selectDia').value = '';
+        document.getElementById('selectHora').value = '';
+        document.getElementById('errorMsg').innerHTML = '';
+        document.getElementById('alertaDisponibilidad').style.display = 'none';
+        
+        cargarSelects();
+        cargarAsignaciones();
+        mostrarNotificacion(`✅ Asignación creada (${duracion} hora(s))`);
+    }
+    
+    function cargarAsignaciones() {
+        const userData = getUserData();
+        const asignaciones = (userData.asignaciones || []).filter(a => !a.esContinuacion);
+        const tbody = document.querySelector('#tablaAsignacion tbody');
+        tbody.innerHTML = '';
+        
+        if (asignaciones.length === 0) {
+            const row = tbody.insertRow();
+            row.insertCell(0).colSpan = 8;
+            row.insertCell(0).innerHTML = '📭 No hay asignaciones.';
+        } else {
+            asignaciones.forEach(a => {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerText = a.docenteNombre;
+                row.insertCell(1).innerText = a.cursoNombre;
+                row.insertCell(2).innerText = a.salon;
+                row.insertCell(3).innerText = a.dia;
+                row.insertCell(4).innerText = a.horarioCompleto;
+                row.insertCell(5).innerText = a.duracion === 2 ? '2 horas' : '1 hora';
+                row.insertCell(6).innerText = `${a.horasAcademicas} hora(s)`;
+                row.insertCell(7).innerHTML = `<button class="btn-small btn-danger" onclick="eliminarAsignacion(${a.id})">🗑️</button>`;
+            });
+        }
+    }
+    
+    function eliminarAsignacion(id) {
+        if (!confirm('¿Eliminar esta asignación?')) return;
+        const userData = getUserData();
+        let asignaciones = userData.asignaciones || [];
+        asignaciones = asignaciones.filter(a => a.id !== id && a.id !== id + 1000);
+        userData.asignaciones = asignaciones;
+        setUserData(userData);
+        cargarSelects();
+        cargarAsignaciones();
+        mostrarNotificacion('🗑️ Eliminada');
+    }
+    
+    function mostrarNotificacion(mensaje) {
+        const n = document.createElement('div');
+        n.textContent = mensaje;
+        n.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 24px; border-radius:12px; z-index:1000;';
+        document.body.appendChild(n);
+        setTimeout(() => n.remove(), 3000);
+    }
+    
+    function cerrarSesion() {
+        localStorage.removeItem('sesion_actual');
+        window.location.href = 'login.html';
+    }
+    
+    cargarSelects();
+    cargarAsignaciones();
+</script>
+
+</body>
+</html>

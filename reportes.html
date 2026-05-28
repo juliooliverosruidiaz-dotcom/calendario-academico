@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reportes | Calendario Académico</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo-area">
+        <div style="font-size: 40px; text-align: center;">📅</div>
+        <h2>Calendario Académico</h2>
+        <p>Gestión de Horarios</p>
+    </div>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="docentes.html">👨‍🏫 Docentes</a>
+    <a href="asignacion.html">📅 Asignación</a>
+    <a href="reportes.html">📈 Reportes</a>
+    <a href="perfil.html">👤 Mi Perfil</a>
+    <a href="pruebas-usabilidad.html">🧪 Pruebas</a>
+    <a href="login.html" onclick="localStorage.removeItem('currentUser')">🚪 Cerrar sesión</a>
+</div>
+
+<div class="main">
+    <h1>📈 Reportes del Sistema</h1>
+    
+    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+        <button onclick="exportarReportePDF()" id="btnExportarReporte" style="width: auto; background: linear-gradient(135deg, #dc3545, #c82333);">📄 Exportar Reporte Completo a PDF</button>
+        <button onclick="actualizarReportes()" style="width: auto;">🔄 Actualizar Datos</button>
+    </div>
+    
+    <div id="reportePDF">
+        <div class="form-card">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #1e3c72;">📊 REPORTE ACADÉMICO</h2>
+                <p><strong>Calendario Académico - Horario Universitario (7:00 AM - 10:00 PM)</strong></p>
+                <p><strong>Fecha de generación:</strong> <span id="fechaReporte"></span></p>
+                <hr>
+            </div>
+            <h3>📊 Resumen General</h3>
+            <div class="card-container" style="margin-bottom: 0;">
+                <div class="card"><h3>👨‍🏫 Docentes</h3><p id="reporteDocentes">0</p></div>
+                <div class="card"><h3>📅 Asignaciones</h3><p id="reporteAsignaciones">0</p></div>
+                <div class="card"><h3>⏰ Total Horas</h3><p id="reporteHorasTotales">0</p></div>
+            </div>
+        </div>
+        
+        <div class="form-card">
+            <h3>📋 Carga Académica por Docente</h3>
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">⚠️ Límite máximo: 42 horas semanales por docente. Cada clase de 50 minutos = 1 hora académica.</p>
+            <div style="overflow-x: auto;">
+                <table id="tablaCargaDocente" style="width:100%">
+                    <thead>
+                        <tr><th>Docente</th><th>Cantidad de Clases</th><th>Horas Semanales</th><th>Estado</th><th>Progreso</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="form-card">
+            <h3>🏫 Uso de Salones</h3>
+            <div style="overflow-x: auto;">
+                <table id="tablaUsoSalones" style="width:100%">
+                    <thead><tr><th>Salón</th><th>Veces Usado</th><th>Cursos Asignados</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="form-card">
+            <h3>📅 Asignaciones por Día</h3>
+            <div style="overflow-x: auto;">
+                <table id="tablaAsignacionesDia" style="width:100%">
+                    <thead><tr><th>Día</th><th>Cantidad de Clases</th><th>Horas Totales</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const DIAS = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
+    const HORAS_MAXIMAS = 42;
+    const HORAS_POR_CLASE = 1;
+    
+    function verificarSesion() {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (!user) window.location.href = 'login.html';
+        return user;
+    }
+    
+    function calcularHorasDocente(docenteNombre, asignaciones) {
+        return asignaciones.filter(a => a.docenteNombre === docenteNombre).length * HORAS_POR_CLASE;
+    }
+    
+    function actualizarReportes() {
+        const user = verificarSesion();
+        if (!user) return;
+        
+        const hoy = new Date();
+        document.getElementById('fechaReporte').innerText = hoy.toLocaleDateString('es-ES');
+        
+        const docentes = JSON.parse(localStorage.getItem('docentes') || '[]');
+        const asignaciones = JSON.parse(localStorage.getItem('asignaciones') || '[]');
+        const totalHoras = asignaciones.length * HORAS_POR_CLASE;
+        
+        document.getElementById('reporteDocentes').innerText = docentes.length;
+        document.getElementById('reporteAsignaciones').innerText = asignaciones.length;
+        document.getElementById('reporteHorasTotales').innerText = totalHoras;
+        
+        const tbodyDocente = document.querySelector('#tablaCargaDocente tbody');
+        tbodyDocente.innerHTML = '';
+        
+        if (docentes.length === 0) {
+            const row = tbodyDocente.insertRow();
+            row.insertCell(0).colSpan = 5;
+            row.insertCell(0).innerHTML = '📭 No hay docentes registrados';
+            row.insertCell(0).style.textAlign = 'center';
+        } else {
+            docentes.forEach(docente => {
+                const horasDocente = calcularHorasDocente(docente.nombre, asignaciones);
+                const porcentaje = (horasDocente / HORAS_MAXIMAS) * 100;
+                let estado = '', colorEstado = '';
+                if (horasDocente >= HORAS_MAXIMAS) { estado = '⚠️ Límite alcanzado'; colorEstado = '#dc3545'; }
+                else if (horasDocente >= HORAS_MAXIMAS * 0.9) { estado = '⚠️ Cerca del límite'; colorEstado = '#ffc107'; }
+                else { estado = '✅ Disponible'; colorEstado = '#28a745'; }
+                
+                const row = tbodyDocente.insertRow();
+                row.insertCell(0).innerText = docente.nombre;
+                row.insertCell(1).innerText = asignaciones.filter(a => a.docenteNombre === docente.nombre).length;
+                row.insertCell(2).innerText = horasDocente;
+                row.insertCell(3).innerHTML = `<span style="color: ${colorEstado}; font-weight: bold;">${estado}</span>`;
+                row.insertCell(4).innerHTML = `<div style="width:100%; background:#e0e0e0; border-radius:10px;"><div style="width:${Math.min(porcentaje,100)}%; height:8px; background:${colorEstado}; border-radius:10px;"></div></div><span style="font-size:10px;">${horasDocente}/${HORAS_MAXIMAS} hrs</span>`;
+            });
+        }
+        
+        const usoSalones = {};
+        asignaciones.forEach(a => {
+            if (a.salon) {
+                if (!usoSalones[a.salon]) usoSalones[a.salon] = { veces: 0, cursos: [] };
+                usoSalones[a.salon].veces++;
+                if (!usoSalones[a.salon].cursos.includes(a.cursoNombre)) usoSalones[a.salon].cursos.push(a.cursoNombre);
+            }
+        });
+        
+        const tbodySalones = document.querySelector('#tablaUsoSalones tbody');
+        tbodySalones.innerHTML = '';
+        if (Object.keys(usoSalones).length === 0) {
+            const row = tbodySalones.insertRow();
+            row.insertCell(0).colSpan = 3;
+            row.insertCell(0).innerHTML = '📭 No hay salones registrados';
+            row.insertCell(0).style.textAlign = 'center';
+        } else {
+            Object.entries(usoSalones).forEach(([salon, data]) => {
+                const row = tbodySalones.insertRow();
+                row.insertCell(0).innerText = salon;
+                row.insertCell(1).innerText = data.veces;
+                row.insertCell(2).innerText = data.cursos.join(', ');
+            });
+        }
+        
+        const asignacionesDia = {};
+        DIAS.forEach(dia => asignacionesDia[dia] = 0);
+        asignaciones.forEach(a => { if (a.dia && asignacionesDia[a.dia] !== undefined) asignacionesDia[a.dia]++; });
+        
+        const tbodyDia = document.querySelector('#tablaAsignacionesDia tbody');
+        tbodyDia.innerHTML = '';
+        Object.entries(asignacionesDia).forEach(([dia, cantidad]) => {
+            const row = tbodyDia.insertRow();
+            row.insertCell(0).innerText = dia;
+            row.insertCell(1).innerText = cantidad;
+            row.insertCell(2).innerText = cantidad * HORAS_POR_CLASE;
+        });
+    }
+    
+    function exportarReportePDF() {
+        const element = document.getElementById('reportePDF');
+        const btnOriginal = document.getElementById('btnExportarReporte');
+        btnOriginal.style.display = 'none';
+        const opt = { margin: [10,10,10,10], filename: `reporte_academico_${new Date().toISOString().split('T')[0]}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } };
+        setTimeout(() => { html2pdf().set(opt).from(element).save().then(() => { btnOriginal.style.display = 'block'; mostrarNotificacion('📄 Reporte exportado'); }).catch(() => { btnOriginal.style.display = 'block'; mostrarNotificacion('❌ Error', 'error'); }); }, 500);
+    }
+    
+    function mostrarNotificacion(mensaje, tipo = 'success') {
+        const notificacion = document.createElement('div');
+        notificacion.textContent = mensaje;
+        notificacion.style.cssText = `position:fixed; bottom:20px; right:20px; background:${tipo === 'success' ? '#28a745' : '#dc3545'}; color:white; padding:12px 24px; border-radius:12px; font-weight:bold; z-index:1000;`;
+        document.body.appendChild(notificacion);
+        setTimeout(() => notificacion.remove(), 3000);
+    }
+    
+    verificarSesion();
+    actualizarReportes();
+</script>
+
+</body>
+</html>

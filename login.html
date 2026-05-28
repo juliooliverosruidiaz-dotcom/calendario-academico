@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login | Calendario Académico</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="container">
+    <div style="text-align: center; margin-bottom: 30px;">
+        <div style="font-size: 60px;">📅</div>
+        <h1 style="color: #1e3c72; margin-top: 10px;">Calendario Académico</h1>
+        <p style="color: #666;">Sistema de Gestión de Horarios</p>
+    </div>
+    <input type="text" id="email" placeholder="📧 Correo electrónico">
+    <input type="password" id="password" placeholder="🔒 Contraseña">
+    <button onclick="login()">🚀 INGRESAR</button>
+    <p style="margin-top: 20px;">¿No tienes cuenta? <a href="registro.html">Regístrate aquí</a></p>
+    <div id="errorMsg" class="error"></div>
+</div>
+
+<script>
+    // Estructura de usuarios: cada usuario tiene su propio storage con prefijo
+    const USUARIOS_KEY = 'sistema_usuarios';
+    
+    function getUsers() {
+        return JSON.parse(localStorage.getItem(USUARIOS_KEY) || '[]');
+    }
+    
+    function saveUsers(users) {
+        localStorage.setItem(USUARIOS_KEY, JSON.stringify(users));
+    }
+    
+    function login() {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const users = getUsers();
+        
+        const user = users.find(u => u.email === email && u.password === password);
+        
+        if (user) {
+            // Guardar sesión actual
+            const sesion = {
+                email: user.email,
+                nombre: user.nombre,
+                rol: user.rol,
+                grado: user.grado || null,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('sesion_actual', JSON.stringify(sesion));
+            
+            // Redirigir según el rol
+            window.location.href = 'dashboard.html';
+        } else {
+            document.getElementById('errorMsg').innerText = '❌ Credenciales incorrectas. ¿No tienes cuenta? Regístrate.';
+        }
+    }
+    
+    // Verificar si hay usuarios, si no, crear admin por defecto
+    function inicializarUsuarios() {
+        const users = getUsers();
+        if (users.length === 0) {
+            const usuarioAdmin = {
+                email: 'admin@calendario.edu',
+                password: 'admin123',
+                nombre: 'Administrador Principal',
+                rol: 'admin',
+                fechaRegistro: new Date().toISOString()
+            };
+            saveUsers([usuarioAdmin]);
+            console.log('Usuario admin creado: admin@calendario.edu / admin123');
+        }
+    }
+    
+    inicializarUsuarios();
+</script>
+
+</body>
+</html>

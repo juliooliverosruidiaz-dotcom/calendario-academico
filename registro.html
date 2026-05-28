@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro | Calendario Académico</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="container">
+    <div style="text-align: center; margin-bottom: 30px;">
+        <div style="font-size: 60px;">📅</div>
+        <h1 style="color: #1e3c72; margin-top: 10px;">Calendario Académico</h1>
+        <p style="color: #666;">Crear nueva cuenta</p>
+    </div>
+    <input type="text" id="nombre" placeholder="👤 Nombre completo">
+    <input type="text" id="email" placeholder="📧 Correo electrónico">
+    <input type="password" id="password" placeholder="🔒 Contraseña">
+    <input type="password" id="confirm" placeholder="✅ Confirmar contraseña">
+    <select id="rol">
+        <option value="admin">Administrador</option>
+        <option value="docente">Docente</option>
+        <option value="estudiante">Estudiante</option>
+    </select>
+    <div id="gradoDiv" style="display: none;">
+        <input type="text" id="grado" placeholder="📚 Grado (Ej: 11-B, 10-A)">
+    </div>
+    <button onclick="registrar()">🎉 REGISTRARSE</button>
+    <p style="margin-top: 20px;">¿Ya tienes cuenta? <a href="login.html">Inicia sesión</a></p>
+    <div id="errorMsg" class="error"></div>
+</div>
+
+<script>
+    const USUARIOS_KEY = 'sistema_usuarios';
+    
+    function getUsers() {
+        return JSON.parse(localStorage.getItem(USUARIOS_KEY) || '[]');
+    }
+    
+    function saveUsers(users) {
+        localStorage.setItem(USUARIOS_KEY, JSON.stringify(users));
+    }
+    
+    // Mostrar campo de grado si es estudiante
+    document.getElementById('rol').addEventListener('change', function() {
+        const gradoDiv = document.getElementById('gradoDiv');
+        if (this.value === 'estudiante') {
+            gradoDiv.style.display = 'block';
+        } else {
+            gradoDiv.style.display = 'none';
+        }
+    });
+    
+    function registrar() {
+        const nombre = document.getElementById('nombre').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('confirm').value;
+        const rol = document.getElementById('rol').value;
+        const grado = document.getElementById('grado').value.trim();
+        
+        if (!nombre || !email || !password) {
+            document.getElementById('errorMsg').innerText = '❌ Todos los campos son obligatorios';
+            return;
+        }
+        
+        if (password !== confirm) {
+            document.getElementById('errorMsg').innerText = '❌ Las contraseñas no coinciden';
+            return;
+        }
+        
+        if (password.length < 4) {
+            document.getElementById('errorMsg').innerText = '❌ La contraseña debe tener al menos 4 caracteres';
+            return;
+        }
+        
+        const users = getUsers();
+        
+        if (users.find(u => u.email === email)) {
+            document.getElementById('errorMsg').innerText = '❌ El correo ya está registrado';
+            return;
+        }
+        
+        if (rol === 'estudiante' && !grado) {
+            document.getElementById('errorMsg').innerText = '❌ Por favor ingresa tu grado';
+            return;
+        }
+        
+        // Crear nuevo usuario
+        const nuevoUsuario = {
+            email: email,
+            password: password,
+            nombre: nombre,
+            rol: rol,
+            grado: rol === 'estudiante' ? grado : null,
+            fechaRegistro: new Date().toISOString()
+        };
+        
+        users.push(nuevoUsuario);
+        saveUsers(users);
+        
+        // Crear estructura de datos vacía para este usuario
+        const userStorageKey = `datos_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const datosIniciales = {
+            docentes: [],
+            cursos: [],
+            asignaciones: [],
+            configuracion: {
+                creado: new Date().toISOString(),
+                ultimoAcceso: null
+            }
+        };
+        localStorage.setItem(userStorageKey, JSON.stringify(datosIniciales));
+        
+        alert('✅ Registro exitoso. Ahora inicia sesión.');
+        window.location.href = 'login.html';
+    }
+</script>
+
+</body>
+</html>

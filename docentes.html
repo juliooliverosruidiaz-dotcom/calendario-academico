@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docentes | Calendario Académico</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo-area">
+        <div style="font-size: 40px; text-align: center;">📅</div>
+        <h2>Calendario Académico</h2>
+        <p>Gestión de Horarios</p>
+    </div>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="docentes.html">👨‍🏫 Docentes</a>
+    <a href="asignacion.html">📅 Asignación</a>
+    <a href="reportes.html">📈 Reportes</a>
+    <a href="perfil.html">👤 Mi Perfil</a>
+    <a href="pruebas-usabilidad.html">🧪 Pruebas</a>
+    <a href="login.html" onclick="cerrarSesion()">🚪 Cerrar sesión</a>
+</div>
+
+<div class="main">
+    <h1>👨‍🏫 Gestión de Docentes y Materias</h1>
+    
+    <div class="form-card">
+        <h3>➕ Agregar Nuevo Docente</h3>
+        <div class="form-group">
+            <label>👨‍🏫 Nombre del docente:</label>
+            <input type="text" id="nombreDocente" placeholder="Ej: Ana López, Carlos Ruiz...">
+        </div>
+        <div class="form-group">
+            <label>📚 Materia que dicta:</label>
+            <input type="text" id="materiaDocente" placeholder="Ej: Matemáticas, Programación Web...">
+        </div>
+        <div class="form-group">
+            <label>🔢 Código de la materia:</label>
+            <input type="text" id="codigoMateria" placeholder="Ej: MAT101, PROG201...">
+        </div>
+        <div class="form-group">
+            <label>📊 Créditos de la materia:</label>
+            <select id="creditosMateria">
+                <option value="1">1 crédito</option>
+                <option value="2">2 créditos</option>
+                <option value="3" selected>3 créditos</option>
+                <option value="4">4 créditos</option>
+                <option value="5">5 créditos</option>
+                <option value="6">6 créditos</option>
+            </select>
+        </div>
+        <button onclick="agregarDocente()">✨ Agregar Docente con Materia</button>
+    </div>
+    
+    <div class="form-card">
+        <h3>📋 Lista de Docentes y sus Materias</h3>
+        <div style="overflow-x: auto;">
+            <table id="tablaDocentes" style="width:100%">
+                <thead>
+                    <tr><th>#</th><th>👨‍🏫 Docente</th><th>📚 Materia</th><th>🔢 Código</th><th>📊 Créditos</th><th>📅 Estado</th><th>⚙️ Acciones</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const HORAS_MAXIMAS = 42;
+    
+    function obtenerUsuarioActual() {
+        const sesion = JSON.parse(localStorage.getItem('sesion_actual'));
+        if (!sesion) window.location.href = 'login.html';
+        return sesion;
+    }
+    
+    function getStorageKey() {
+        const usuario = obtenerUsuarioActual();
+        return `datos_${usuario.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    }
+    
+    function getUserData() {
+        const key = getStorageKey();
+        const data = localStorage.getItem(key);
+        if (!data) {
+            const datosIniciales = { docentes: [], cursos: [], asignaciones: [], configuracion: { creado: new Date().toISOString() } };
+            localStorage.setItem(key, JSON.stringify(datosIniciales));
+            return datosIniciales;
+        }
+        return JSON.parse(data);
+    }
+    
+    function setUserData(data) {
+        const key = getStorageKey();
+        localStorage.setItem(key, JSON.stringify(data));
+    }
+    
+    function calcularHorasDocente(docenteNombre) {
+        const userData = getUserData();
+        const asignaciones = userData.asignaciones || [];
+        return asignaciones.filter(a => a.docenteNombre === docenteNombre && !a.esContinuacion).reduce((total, a) => total + (a.horasAcademicas || 1), 0);
+    }
+    
+    function obtenerEstadoDocente(docenteNombre) {
+        const horasActuales = calcularHorasDocente(docenteNombre);
+        if (horasActuales >= HORAS_MAXIMAS) return { texto: '⚠️ Horas completas', color: '#dc3545', icono: '🔴' };
+        if (horasActuales >= HORAS_MAXIMAS * 0.9) return { texto: '⚠️ Cerca del límite', color: '#ffc107', icono: '🟡' };
+        return { texto: '✅ Disponible', color: '#28a745', icono: '🟢' };
+    }
+    
+    function cargarDocentes() {
+        const userData = getUserData();
+        const docentes = userData.docentes || [];
+        const tbody = document.querySelector('#tablaDocentes tbody');
+        tbody.innerHTML = '';
+        
+        if (docentes.length === 0) {
+            const row = tbody.insertRow();
+            row.insertCell(0).colSpan = 7;
+            row.insertCell(0).innerHTML = '📭 No hay docentes registrados. Agrega uno arriba.';
+            row.insertCell(0).style.textAlign = 'center';
+        } else {
+            docentes.forEach((docente, index) => {
+                const horasDocente = calcularHorasDocente(docente.nombre);
+                const porcentaje = (horasDocente / HORAS_MAXIMAS) * 100;
+                const estado = obtenerEstadoDocente(docente.nombre);
+                
+                const row = tbody.insertRow();
+                row.insertCell(0).innerText = index + 1;
+                row.insertCell(1).innerHTML = `<strong>${docente.nombre}</strong><br><small>${horasDocente}/${HORAS_MAXIMAS} hrs</small>
+                    <div style="width:100%; background:#e0e0e0; border-radius:5px; margin-top:5px;">
+                        <div style="width:${Math.min(porcentaje,100)}%; height:4px; background:${estado.color}; border-radius:5px;"></div>
+                    </div>`;
+                row.insertCell(2).innerHTML = `<strong>${docente.materia}</strong>`;
+                row.insertCell(3).innerText = docente.codigoMateria || '---';
+                row.insertCell(4).innerText = `${docente.creditos || 3} crédito(s)`;
+                row.insertCell(5).innerHTML = `<span style="color: ${estado.color}; font-weight: bold;">${estado.icono} ${estado.texto}</span>`;
+                row.insertCell(6).innerHTML = `
+                    <button class="btn-small btn-edit" onclick="editarDocente(${index})">✏️ Editar</button>
+                    <button class="btn-small btn-danger" onclick="eliminarDocente(${index}, '${docente.nombre}')">🗑️ Eliminar</button>
+                `;
+            });
+        }
+    }
+    
+    function agregarDocente() {
+        const nombre = document.getElementById('nombreDocente').value.trim();
+        const materia = document.getElementById('materiaDocente').value.trim();
+        const codigoMateria = document.getElementById('codigoMateria').value.trim();
+        const creditos = parseInt(document.getElementById('creditosMateria').value);
+        
+        if (!nombre || !materia) {
+            alert('❌ Por favor completa nombre y materia');
+            return;
+        }
+        
+        const userData = getUserData();
+        let docentes = userData.docentes || [];
+        
+        if (docentes.some(d => d.nombre.toLowerCase() === nombre.toLowerCase())) {
+            alert('❌ Ya existe un docente con ese nombre');
+            return;
+        }
+        
+        docentes.push({ 
+            id: docentes.length + 1,
+            nombre: nombre,
+            materia: materia,
+            codigoMateria: codigoMateria || `MAT${Math.floor(Math.random() * 1000)}`,
+            creditos: creditos,
+            fechaCreacion: new Date().toISOString()
+        });
+        
+        // También actualizar cursos
+        let cursos = userData.cursos || [];
+        if (!cursos.some(c => c.nombre.toLowerCase() === materia.toLowerCase())) {
+            cursos.push({
+                id: cursos.length + 1,
+                nombre: materia,
+                codigo: codigoMateria || `MAT${Math.floor(Math.random() * 1000)}`,
+                creditos: creditos
+            });
+        }
+        
+        userData.docentes = docentes;
+        userData.cursos = cursos;
+        setUserData(userData);
+        
+        document.getElementById('nombreDocente').value = '';
+        document.getElementById('materiaDocente').value = '';
+        document.getElementById('codigoMateria').value = '';
+        
+        cargarDocentes();
+        mostrarNotificacion(`✅ Docente "${nombre}" agregado`);
+    }
+    
+    function editarDocente(index) {
+        const userData = getUserData();
+        let docentes = userData.docentes || [];
+        const docente = docentes[index];
+        
+        const nuevoNombre = prompt('✏️ Editar nombre:', docente.nombre);
+        const nuevaMateria = prompt('✏️ Editar materia:', docente.materia);
+        
+        if (nuevoNombre && nuevoNombre.trim()) {
+            if (docentes.some((d, i) => i !== index && d.nombre.toLowerCase() === nuevoNombre.trim().toLowerCase())) {
+                alert('❌ Ya existe un docente con ese nombre');
+                return;
+            }
+            docentes[index].nombre = nuevoNombre.trim();
+        }
+        if (nuevaMateria && nuevaMateria.trim()) {
+            docentes[index].materia = nuevaMateria.trim();
+        }
+        
+        userData.docentes = docentes;
+        setUserData(userData);
+        cargarDocentes();
+        mostrarNotificacion('✏️ Docente actualizado');
+    }
+    
+    function eliminarDocente(index, docenteNombre) {
+        const userData = getUserData();
+        const asignaciones = userData.asignaciones || [];
+        const asignacionesDocente = asignaciones.filter(a => a.docenteNombre === docenteNombre);
+        
+        let mensaje = `⚠️ ¿Eliminar al docente "${docenteNombre}"?`;
+        if (asignacionesDocente.length > 0) {
+            mensaje += `\n\n⚠️ Tiene ${asignacionesDocente.length} asignación(es) que también se eliminarán.`;
+        }
+        
+        if (confirm(mensaje)) {
+            let docentes = userData.docentes || [];
+            docentes.splice(index, 1);
+            userData.docentes = docentes;
+            
+            let nuevasAsignaciones = asignaciones.filter(a => a.docenteNombre !== docenteNombre);
+            userData.asignaciones = nuevasAsignaciones;
+            
+            setUserData(userData);
+            cargarDocentes();
+            mostrarNotificacion(`🗑️ Docente eliminado`);
+        }
+    }
+    
+    function mostrarNotificacion(mensaje) {
+        const notificacion = document.createElement('div');
+        notificacion.textContent = mensaje;
+        notificacion.style.cssText = `position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 24px; border-radius:12px; font-weight:bold; z-index:1000;`;
+        document.body.appendChild(notificacion);
+        setTimeout(() => notificacion.remove(), 3000);
+    }
+    
+    function cerrarSesion() {
+        localStorage.removeItem('sesion_actual');
+        window.location.href = 'login.html';
+    }
+    
+    cargarDocentes();
+</script>
+
+</body>
+</html>

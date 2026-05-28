@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Perfil | Calendario Académico</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo-area">
+        <div style="font-size: 40px; text-align: center;">📅</div>
+        <h2>Calendario Académico</h2>
+        <p>Gestión de Horarios</p>
+    </div>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="docentes.html">👨‍🏫 Docentes</a>
+    <a href="asignacion.html">📅 Asignación</a>
+    <a href="reportes.html">📈 Reportes</a>
+    <a href="perfil.html">👤 Mi Perfil</a>
+    <a href="pruebas-usabilidad.html">🧪 Pruebas</a>
+    <a href="login.html" onclick="localStorage.removeItem('currentUser')">🚪 Cerrar sesión</a>
+</div>
+
+<div class="main">
+    <h1>👤 Mi Perfil</h1>
+    
+    <div class="form-card">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 80px;">👨‍🎓</div>
+        </div>
+        <div class="form-group">
+            <label>Nombre completo:</label>
+            <input type="text" id="perfilNombre" readonly style="background: #f8f9ff;">
+        </div>
+        <div class="form-group">
+            <label>Correo electrónico:</label>
+            <input type="text" id="perfilEmail" readonly style="background: #f8f9ff;">
+        </div>
+        <div class="form-group">
+            <label>Rol:</label>
+            <input type="text" id="perfilRol" readonly style="background: #f8f9ff;">
+        </div>
+        <hr style="margin: 20px 0;">
+        <h3>📊 Estadísticas Personales</h3>
+        <div class="card-container" style="margin-top: 20px;">
+            <div class="card"><h3>📚 Cursos Asignados</h3><p id="misCursos">0</p></div>
+            <div class="card"><h3>⏰ Horas Semanales</h3><p id="misHoras">0</p></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const HORAS_POR_CLASE = 1;
+    
+    function verificarSesion() {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (!user) window.location.href = 'login.html';
+        return user;
+    }
+    
+    function cargarPerfil() {
+        const user = verificarSesion();
+        document.getElementById('perfilNombre').value = user.fullname;
+        document.getElementById('perfilEmail').value = user.email;
+        document.getElementById('perfilRol').value = user.rol === 'admin' ? 'Administrador' : (user.rol === 'docente' ? 'Docente' : 'Estudiante');
+        
+        const asignaciones = JSON.parse(localStorage.getItem('asignaciones') || '[]');
+        let misCursos = 0, misHoras = 0;
+        
+        if (user.rol === 'docente') {
+            const misAsignaciones = asignaciones.filter(a => a.docenteNombre === user.fullname);
+            misCursos = misAsignaciones.length;
+            misHoras = misAsignaciones.length * HORAS_POR_CLASE;
+        } else if (user.rol === 'estudiante') {
+            misCursos = asignaciones.length;
+            misHoras = asignaciones.length * HORAS_POR_CLASE;
+        }
+        
+        document.getElementById('misCursos').innerText = misCursos;
+        document.getElementById('misHoras').innerText = misHoras;
+    }
+    
+    cargarPerfil();
+</script>
+
+</body>
+</html>

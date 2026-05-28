@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard | Calendario Académico</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo-area">
+        <div style="font-size: 40px; text-align: center;">📅</div>
+        <h2>Calendario Académico</h2>
+        <p>Gestión de Horarios</p>
+    </div>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="docentes.html">👨‍🏫 Docentes</a>
+    <a href="asignacion.html">📅 Asignación</a>
+    <a href="reportes.html">📈 Reportes</a>
+    <a href="perfil.html">👤 Mi Perfil</a>
+    <a href="pruebas-usabilidad.html">🧪 Pruebas</a>
+    <a href="login.html" onclick="cerrarSesion()">🚪 Cerrar sesión</a>
+</div>
+
+<div class="main">
+    <h1 id="welcomeMsg"></h1>
+    
+    <div class="card-container">
+        <div class="card" onclick="window.location.href='docentes.html'">
+            <h3>👨‍🏫 Total Docentes</h3>
+            <p id="totalDocentes">0</p>
+        </div>
+        <div class="card" onclick="window.location.href='asignacion.html'">
+            <h3>📅 Asignaciones</h3>
+            <p id="totalAsignaciones">0</p>
+        </div>
+        <div class="card">
+            <h3>⏰ Total Horas</h3>
+            <p id="totalHoras">0</p>
+        </div>
+    </div>
+    
+    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+        <button onclick="exportarPDF()" id="btnExportarPDF" style="width: auto; background: linear-gradient(135deg, #dc3545, #c82333);">📄 Exportar Horario a PDF</button>
+        <button onclick="window.location.href='pruebas-usabilidad.html'" style="width: auto; background: linear-gradient(135deg, #6f42c1, #6610f2);">🧪 Pruebas de Usabilidad</button>
+        <button onclick="window.location.href='reportes.html'" style="width: auto;">📊 Generar Reportes</button>
+    </div>
+    
+    <div class="form-card" id="horarioPDF">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #1e3c72;">📅 CALENDARIO ACADÉMICO</h2>
+            <p><strong>Nombre:</strong> <span id="nombreEstudiante">Usuario</span></p>
+            <p><strong>Rol:</strong> <span id="rolUsuario"></span></p>
+            <p><strong>Fecha de generación:</strong> <span id="fechaActual"></span></p>
+            <hr>
+        </div>
+        <h3>📅 MI HORARIO DE CLASES</h3>
+        <div class="horario-table" id="horarioContainer"></div>
+    </div>
+</div>
+
+<script>
+    const DIAS = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
+    const HORAS = [
+        { label: '7:00 – 7:50', valor: '7:00' }, { label: '7:50 – 8:40', valor: '7:50' },
+        { label: '8:40 – 9:30', valor: '8:40' }, { label: '9:30 – 10:20', valor: '9:30' },
+        { label: '10:20 – 11:10', valor: '10:20' }, { label: '11:10 – 12:00', valor: '11:10' },
+        { label: '12:00 – 12:50', valor: '12:00' }, { label: '12:50 – 13:40', valor: '12:50' },
+        { label: '13:40 – 14:30', valor: '13:40' }, { label: '14:30 – 15:20', valor: '14:30' },
+        { label: '15:20 – 16:10', valor: '15:20' }, { label: '16:10 – 17:00', valor: '16:10' },
+        { label: '17:00 – 17:50', valor: '17:00' }, { label: '17:50 – 18:40', valor: '17:50' },
+        { label: '18:40 – 19:30', valor: '18:40' }, { label: '19:30 – 20:20', valor: '19:30' },
+        { label: '20:20 – 21:10', valor: '20:20' }, { label: '21:10 – 22:00', valor: '21:10' }
+    ];
+    
+    // Obtener usuario actual
+    function obtenerUsuarioActual() {
+        const sesion = JSON.parse(localStorage.getItem('sesion_actual'));
+        if (!sesion) {
+            window.location.href = 'login.html';
+            return null;
+        }
+        return sesion;
+    }
+    
+    // Obtener clave de storage para el usuario
+    function getStorageKey() {
+        const usuario = obtenerUsuarioActual();
+        if (!usuario) return null;
+        return `datos_${usuario.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    }
+    
+    // Obtener datos del usuario actual
+    function getUserData() {
+        const key = getStorageKey();
+        if (!key) return null;
+        const data = localStorage.getItem(key);
+        if (!data) {
+            // Inicializar datos vacíos para el usuario
+            const datosIniciales = {
+                docentes: [],
+                cursos: [],
+                asignaciones: [],
+                configuracion: {
+                    creado: new Date().toISOString(),
+                    ultimoAcceso: new Date().toISOString()
+                }
+            };
+            localStorage.setItem(key, JSON.stringify(datosIniciales));
+            return datosIniciales;
+        }
+        return JSON.parse(data);
+    }
+    
+    // Guardar datos del usuario
+    function setUserData(data) {
+        const key = getStorageKey();
+        if (key) {
+            data.configuracion = data.configuracion || {};
+            data.configuracion.ultimoAcceso = new Date().toISOString();
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+    }
+    
+    function verificarSesion() {
+        const usuario = obtenerUsuarioActual();
+        if (!usuario) return false;
+        return true;
+    }
+    
+    function cargarDashboard() {
+        if (!verificarSesion()) return;
+        
+        const usuario = obtenerUsuarioActual();
+        const userData = getUserData();
+        
+        let mensaje = '';
+        if (usuario.rol === 'admin') mensaje = '🎉 Bienvenido, Administrador 🎉';
+        else if (usuario.rol === 'docente') mensaje = `👨‍🏫 Bienvenido, Docente ${usuario.nombre}`;
+        else mensaje = `🎓 Bienvenido, Estudiante ${usuario.nombre}`;
+        
+        document.getElementById('welcomeMsg').innerHTML = mensaje;
+        document.getElementById('nombreEstudiante').innerText = usuario.nombre;
+        document.getElementById('rolUsuario').innerText = usuario.rol === 'admin' ? 'Administrador' : (usuario.rol === 'docente' ? 'Docente' : 'Estudiante');
+        
+        const hoy = new Date();
+        document.getElementById('fechaActual').innerText = hoy.toLocaleDateString('es-ES');
+        
+        const docentes = userData.docentes || [];
+        const asignaciones = userData.asignaciones || [];
+        const asignacionesReales = asignaciones.filter(a => !a.esContinuacion);
+        
+        document.getElementById('totalDocentes').innerText = docentes.length;
+        document.getElementById('totalAsignaciones').innerText = asignacionesReales.length;
+        document.getElementById('totalHoras').innerText = asignacionesReales.reduce((sum, a) => sum + (a.horasAcademicas || 1), 0);
+        
+        generarHorario(asignaciones, usuario);
+    }
+    
+    function obtenerSiguienteHora(hora) {
+        const listaHoras = HORAS.map(h => h.valor);
+        const index = listaHoras.indexOf(hora);
+        if (index !== -1 && index + 1 < listaHoras.length) {
+            return listaHoras[index + 1];
+        }
+        return null;
+    }
+    
+    function generarHorario(asignaciones, usuario) {
+        const mapaHorarios = {};
+        DIAS.forEach(dia => {
+            mapaHorarios[dia] = {};
+            HORAS.forEach(hora => {
+                mapaHorarios[dia][hora.valor] = null;
+            });
+        });
+        
+        let asignacionesFiltradas = asignaciones;
+        if (usuario.rol === 'docente') {
+            asignacionesFiltradas = asignaciones.filter(a => a.docenteNombre === usuario.nombre && !a.esContinuacion);
+            const horasDocente = asignacionesFiltradas.reduce((sum, a) => sum + (a.horasAcademicas || 1), 0);
+            const limite = 42;
+            const porcentaje = (horasDocente / limite) * 100;
+            let mensajeHoras = `<div style="background: #f8f9ff; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
+                                    <strong>📊 Tu carga académica:</strong> ${horasDocente} de ${limite} horas semanales
+                                    <div style="width: 100%; background: #e0e0e0; border-radius: 10px; margin-top: 5px;">
+                                        <div style="width: ${Math.min(porcentaje, 100)}%; height: 10px; background: ${porcentaje >= 90 ? '#dc3545' : (porcentaje >= 75 ? '#ffc107' : '#28a745')}; border-radius: 10px;"></div>
+                                    </div>
+                                </div>`;
+            document.getElementById('horarioContainer').innerHTML = mensajeHoras;
+        }
+        
+        asignaciones.forEach(asig => {
+            if (asig.dia && asig.hora && mapaHorarios[asig.dia] && !asig.esContinuacion) {
+                mapaHorarios[asig.dia][asig.hora] = asig;
+                if (asig.duracion === 2) {
+                    const siguienteHora = obtenerSiguienteHora(asig.hora);
+                    if (siguienteHora && mapaHorarios[asig.dia]) {
+                        mapaHorarios[asig.dia][siguienteHora] = { ...asig, esContinuacionEnHorario: true };
+                    }
+                }
+            }
+        });
+        
+        let html = '<div style="overflow-x: auto;"><table border="1" style="width:100%; border-collapse:collapse; min-width: 800px;">';
+        html += '<thead><tr style="background: #1e3c72; color: white;">';
+        html += '<th style="padding: 12px;">HORAS</th>';
+        DIAS.forEach(dia => { html += `<th style="padding: 12px;">${dia}</th>`; });
+        html += '<tr></thead><tbody>';
+        
+        HORAS.forEach(hora => {
+            html += `<tr>`;
+            html += `<td style="padding: 12px; background: #f8f9ff; font-weight: bold; text-align: center;">${hora.label}<br><small style="font-size:10px;">(1 hora académica)</small></td>`;
+            DIAS.forEach(dia => {
+                const clase = mapaHorarios[dia][hora.valor];
+                if (clase) {
+                    if (clase.esContinuacionEnHorario) {
+                        html += `<td style="padding: 12px; background: #d4edda; border-left: 4px solid #28a745;">
+                                    <strong>↳ ${clase.cursoNombre}</strong><br>
+                                    <small>👨‍🏫 ${clase.docenteNombre}</small><br>
+                                    <small>(Continuación)</small>
+                                  </td>`;
+                    } else {
+                        const duracionTexto = clase.duracion === 2 ? '🎯 2 horas' : '⏱️ 1 hora';
+                        html += `<td style="padding: 12px; background: #e8f4fd; border-left: 4px solid #2a5298;">
+                                    <strong>${clase.cursoNombre}</strong><br>
+                                    <small>👨‍🏫 ${clase.docenteNombre}</small><br>
+                                    <small>🏫 ${clase.salon || 'N/A'}</small><br>
+                                    <small style="color:#28a745;">${duracionTexto}</small>
+                                  </td>`;
+                    }
+                } else {
+                    if (hora.valor === '12:00') {
+                        html += `<td style="padding: 12px; background: #d1ecf1; text-align: center;"><strong>🍽️ ALMUERZO</strong></td>`;
+                    } else {
+                        html += `<td style="padding: 12px; background: #f9f9f9; text-align: center;">-</td>`;
+                    }
+                }
+            });
+            html += `</tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        
+        const asignacionesReales = asignaciones.filter(a => !a.esContinuacion);
+        if (asignacionesReales.length === 0 && usuario.rol !== 'docente') {
+            html = '<p style="text-align: center; padding: 40px;">📭 No hay asignaciones para mostrar. Ve a la sección de Asignación para crear horarios.</p>';
+        }
+        
+        if (usuario.rol !== 'docente') {
+            document.getElementById('horarioContainer').innerHTML = html;
+        } else {
+            document.getElementById('horarioContainer').innerHTML += html;
+        }
+    }
+    
+    function exportarPDF() {
+        const element = document.getElementById('horarioPDF');
+        const btnOriginal = document.getElementById('btnExportarPDF');
+        btnOriginal.style.display = 'none';
+        const opt = { margin: [10,10,10,10], filename: `horario_${new Date().toISOString().split('T')[0]}.pdf`, image: { quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } };
+        setTimeout(() => { html2pdf().set(opt).from(element).save().then(() => { btnOriginal.style.display = 'block'; mostrarNotificacion('📄 PDF exportado'); }).catch(() => { btnOriginal.style.display = 'block'; }); }, 500);
+    }
+    
+    function mostrarNotificacion(mensaje) {
+        const notificacion = document.createElement('div');
+        notificacion.textContent = mensaje;
+        notificacion.style.cssText = `position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 24px; border-radius:12px; font-weight:bold; z-index:1000;`;
+        document.body.appendChild(notificacion);
+        setTimeout(() => notificacion.remove(), 3000);
+    }
+    
+    function cerrarSesion() {
+        localStorage.removeItem('sesion_actual');
+        window.location.href = 'login.html';
+    }
+    
+    cargarDashboard();
+</script>
+
+</body>
+</html>
