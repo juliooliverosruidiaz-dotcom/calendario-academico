@@ -53,6 +53,12 @@
 
 <script>
     const HORAS_POR_CLASE = 1;
+
+    function obtenerUsuarioActual() {
+        const sesion = JSON.parse(localStorage.getItem('sesion_actual'));
+        if (!sesion) window.location.href = 'index.html';
+        return sesion;
+    }
     
     function verificarSesion() {
         const user = JSON.parse(localStorage.getItem('currentUser'));
