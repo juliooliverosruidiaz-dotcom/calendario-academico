@@ -91,35 +91,46 @@
 
     function obtenerUsuarioActual() {
         const sesion = JSON.parse(localStorage.getItem('sesion_actual'));
-        if (!sesion) window.location.href = 'index.html';
+        if (!sesion) {
+            window.location.href = 'index.html';
+            return null;
+        }
         return sesion;
     }
     
-    function verificarSesion() {
-        const user = JSON.parse(localStorage.getItem('currentUser'));
-        if (!user) window.location.href = 'index.html';
-        return user;
+    // Obtener los datos del espacio aislado del usuario actual
+    function getUserData() {
+        const usuario = obtenerUsuarioActual();
+        if (!usuario) return null;
+        const key = `datos_${usuario.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        return JSON.parse(localStorage.getItem(key) || '{"docentes":[],"cursos":[],"asignaciones":[]}');
     }
     
     function calcularHorasDocente(docenteNombre, asignaciones) {
-        return asignaciones.filter(a => a.docenteNombre === docenteNombre).length * HORAS_POR_CLASE;
+        return asignaciones.filter(a => a.docenteNombre === docenteNombre && !a.esContinuacion)
+                           .reduce((sum, a) => sum + (a.horasAcademicas || 1), 0);
     }
     
     function actualizarReportes() {
-        const user = verificarSesion();
+        const user = obtenerUsuarioActual();
         if (!user) return;
         
         const hoy = new Date();
         document.getElementById('fechaReporte').innerText = hoy.toLocaleDateString('es-ES');
         
-        const docentes = JSON.parse(localStorage.getItem('docentes') || '[]');
-        const asignaciones = JSON.parse(localStorage.getItem('asignaciones') || '[]');
-        const totalHoras = asignaciones.length * HORAS_POR_CLASE;
+        // Traer la información correcta del usuario logueado
+        const userData = getUserData();
+        const docentes = userData.docentes || [];
+        const asignaciones = userData.asignaciones || [];
+        const asignacionesReales = asignaciones.filter(a => !a.esContinuacion);
+        
+        const totalHoras = asignacionesReales.reduce((sum, a) => sum + (a.horasAcademicas || 1), 0);
         
         document.getElementById('reporteDocentes').innerText = docentes.length;
-        document.getElementById('reporteAsignaciones').innerText = asignaciones.length;
+        document.getElementById('reporteAsignaciones').innerText = asignacionesReales.length;
         document.getElementById('reporteHorasTotales').innerText = totalHoras;
         
+        // --- Tabla Carga Docente ---
         const tbodyDocente = document.querySelector('#tablaCargaDocente tbody');
         tbodyDocente.innerHTML = '';
         
@@ -139,15 +150,16 @@
                 
                 const row = tbodyDocente.insertRow();
                 row.insertCell(0).innerText = docente.nombre;
-                row.insertCell(1).innerText = asignaciones.filter(a => a.docenteNombre === docente.nombre).length;
+                row.insertCell(1).innerText = asignacionesReales.filter(a => a.docenteNombre === docente.nombre).length;
                 row.insertCell(2).innerText = horasDocente;
                 row.insertCell(3).innerHTML = `<span style="color: ${colorEstado}; font-weight: bold;">${estado}</span>`;
                 row.insertCell(4).innerHTML = `<div style="width:100%; background:#e0e0e0; border-radius:10px;"><div style="width:${Math.min(porcentaje,100)}%; height:8px; background:${colorEstado}; border-radius:10px;"></div></div><span style="font-size:10px;">${horasDocente}/${HORAS_MAXIMAS} hrs</span>`;
             });
         }
         
+        // --- Tabla Uso Salones ---
         const usoSalones = {};
-        asignaciones.forEach(a => {
+        asignacionesReales.forEach(a => {
             if (a.salon) {
                 if (!usoSalones[a.salon]) usoSalones[a.salon] = { veces: 0, cursos: [] };
                 usoSalones[a.salon].veces++;
@@ -171,17 +183,25 @@
             });
         }
         
+        // --- Tabla por Día ---
         const asignacionesDia = {};
-        DIAS.forEach(dia => asignacionesDia[dia] = 0);
-        asignaciones.forEach(a => { if (a.dia && asignacionesDia[a.dia] !== undefined) asignacionesDia[a.dia]++; });
+        const horasDia = {};
+        DIAS.forEach(dia => { asignacionesDia[dia] = 0; horasDia[dia] = 0; });
+        
+        asignacionesReales.forEach(a => { 
+            if (a.dia && asignacionesDia[a.dia] !== undefined) {
+                asignacionesDia[a.dia]++; 
+                horasDia[a.dia] += (a.horasAcademicas || 1);
+            }
+        });
         
         const tbodyDia = document.querySelector('#tablaAsignacionesDia tbody');
         tbodyDia.innerHTML = '';
-        Object.entries(asignacionesDia).forEach(([dia, cantidad]) => {
+        DIAS.forEach(dia => {
             const row = tbodyDia.insertRow();
             row.insertCell(0).innerText = dia;
-            row.insertCell(1).innerText = cantidad;
-            row.insertCell(2).innerText = cantidad * HORAS_POR_CLASE;
+            row.insertCell(1).innerText = asignacionesDia[dia];
+            row.insertCell(2).innerText = horasDia[dia];
         });
     }
     
@@ -201,7 +221,8 @@
         setTimeout(() => notificacion.remove(), 3000);
     }
     
-    verificarSesion();
+    // Inicialización de la vista
+    obtenerUsuarioActual();
     actualizarReportes();
 </script>
 

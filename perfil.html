@@ -56,38 +56,52 @@
 
     function obtenerUsuarioActual() {
         const sesion = JSON.parse(localStorage.getItem('sesion_actual'));
-        if (!sesion) window.location.href = 'index.html';
+        if (!sesion) {
+            window.location.href = 'index.html';
+            return null;
+        }
         return sesion;
     }
     
-    function verificarSesion() {
-        const user = JSON.parse(localStorage.getItem('currentUser'));
-        if (!user) window.location.href = 'index.html';
-        return user;
+    // Función unificada para obtener los datos específicos del usuario conectado
+    function getUserData() {
+        const usuario = obtenerUsuarioActual();
+        if (!usuario) return null;
+        const key = `datos_${usuario.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        return JSON.parse(localStorage.getItem(key) || '{"docentes":[],"cursos":[],"asignaciones":[]}');
     }
     
     function cargarPerfil() {
-        const user = verificarSesion();
-        document.getElementById('perfilNombre').value = user.fullname;
+        const user = obtenerUsuarioActual();
+        if (!user) return;
+
+        // Mostrar datos del usuario en los inputs
+        document.getElementById('perfilNombre').value = user.nombre; // Cambiado .fullname por .nombre
         document.getElementById('perfilEmail').value = user.email;
         document.getElementById('perfilRol').value = user.rol === 'admin' ? 'Administrador' : (user.rol === 'docente' ? 'Docente' : 'Estudiante');
         
-        const asignaciones = JSON.parse(localStorage.getItem('asignaciones') || '[]');
+        // Cargar asignaciones desde su espacio de datos correspondiente
+        const userData = getUserData();
+        const asignaciones = userData.asignaciones || [];
+        const asignacionesReales = asignaciones.filter(a => !a.esContinuacion);
+        
         let misCursos = 0, misHoras = 0;
         
         if (user.rol === 'docente') {
-            const misAsignaciones = asignaciones.filter(a => a.docenteNombre === user.fullname);
+            const misAsignaciones = asignacionesReales.filter(a => a.docenteNombre === user.nombre);
             misCursos = misAsignaciones.length;
-            misHoras = misAsignaciones.length * HORAS_POR_CLASE;
-        } else if (user.rol === 'estudiante') {
-            misCursos = asignaciones.length;
-            misHoras = asignaciones.length * HORAS_POR_CLASE;
+            misHoras = misAsignaciones.reduce((sum, a) => sum + (a.horasAcademicas || 1), 0);
+        } else {
+            // Si es estudiante o admin ve el global o lo correspondiente
+            misCursos = asignacionesReales.length;
+            misHoras = asignacionesReales.reduce((sum, a) => sum + (a.horasAcademicas || 1), 0);
         }
         
         document.getElementById('misCursos').innerText = misCursos;
         document.getElementById('misHoras').innerText = misHoras;
     }
     
+    // Ejecutar al cargar la página
     cargarPerfil();
 </script>
 
